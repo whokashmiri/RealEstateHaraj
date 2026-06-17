@@ -206,10 +206,12 @@ async def scrape_tag_page(browser) -> None:
     scraped_count = 0
     load_round = 0
     consecutive_existing = 0
-    should_stop_round = False
 
     while True:
         posts = await collect_visible_posts(list_tab)
+
+        batch_to_scrape = []
+        should_stop_round = False
 
         for post in posts:
             url_id = str(post.get("urlId") or "").strip()
@@ -242,17 +244,34 @@ async def scrape_tag_page(browser) -> None:
                 continue
 
             consecutive_existing = 0
+            batch_to_scrape.append(post)
 
-            print(f"[LIST] New ad found urlId={url_id}. Scraping...")
-            await scrape_ad(browser, post, sem)
-            scraped_count += 1
-
-            if settings.max_ads_per_run and scraped_count >= settings.max_ads_per_run:
-                print(f"[LIST] MAX_ADS_PER_RUN reached: {scraped_count}")
+            if settings.max_ads_per_run and (
+                scraped_count + len(batch_to_scrape)
+            ) >= settings.max_ads_per_run:
                 should_stop_round = True
                 break
 
+        if batch_to_scrape:
+            print(
+                f"[LIST] Scraping batch={len(batch_to_scrape)} "
+                f"concurrency={settings.scrape_concurrency}"
+            )
+
+            await asyncio.gather(
+                *(scrape_ad(browser, post, sem) for post in batch_to_scrape)
+            )
+
+            scraped_count += len(batch_to_scrape)
+
+        else:
+            print("[LIST] No new visible ads to scrape")
+
         if should_stop_round:
+            break
+
+        if settings.max_ads_per_run and scraped_count >= settings.max_ads_per_run:
+            print(f"[LIST] MAX_ADS_PER_RUN reached: {scraped_count}")
             break
 
         load_round += 1

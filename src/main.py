@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import nodriver as uc
-
+import asyncio
 from .auth import ensure_logged_in
 from .browser import save_cookies, start_browser
 from .db import ensure_indexes
 from .scraper import scrape_tag_page
 from .urls import BASE_URL
+from .config import settings
 
 
 async def amain() -> None:
@@ -17,7 +18,15 @@ async def amain() -> None:
         tab = await browser.get(BASE_URL)
         await ensure_logged_in(browser, tab)
         await save_cookies(browser)
-        await scrape_tag_page(browser)
+        while True:
+            await scrape_tag_page(browser)
+            if not settings.recent_loop_enabled:
+                break
+            print(
+                f"[MAIN] Waiting {settings.recent_loop_sleep_seconds} seconds "
+                "before checking new ads again..."
+            )
+            await asyncio.sleep(settings.recent_loop_sleep_seconds)
 
     finally:
         try:
