@@ -34,5 +34,9 @@ class Settings(BaseSettings):
     recent_loop_sleep_seconds: int = 180
     stop_after_existing_ads: int = 5
 
+    recent_loop_enabled: bool = True
+    recent_loop_interval_seconds: int = 180
+    allow_overlapping_rounds: bool = True
+
 
 settings = Settings()

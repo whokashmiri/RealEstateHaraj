@@ -18,15 +18,30 @@ async def amain() -> None:
         tab = await browser.get(BASE_URL)
         await ensure_logged_in(browser, tab)
         await save_cookies(browser)
+        active_rounds: set[asyncio.Task] = set()
+        round_no = 0
         while True:
-            await scrape_tag_page(browser)
+            round_no += 1
+
+            print(f"[MAIN] Starting scrape round #{round_no}")
+
+            task = asyncio.create_task(scrape_tag_page(browser))
+            active_rounds.add(task)
+
+            task.add_done_callback(active_rounds.discard)
             if not settings.recent_loop_enabled:
+                await task
                 break
             print(
-                f"[MAIN] Waiting {settings.recent_loop_sleep_seconds} seconds "
-                "before checking new ads again..."
+                f"[MAIN] Next scrape round will start in "
+                f"{settings.recent_loop_interval_seconds} seconds"
             )
-            await asyncio.sleep(settings.recent_loop_sleep_seconds)
+
+            await asyncio.sleep(settings.recent_loop_interval_seconds)
+            if not settings.allow_overlapping_rounds:
+                if active_rounds:
+                    print("[MAIN] Previous round still running. Skipping this interval.")
+                    continue
 
     finally:
         try:

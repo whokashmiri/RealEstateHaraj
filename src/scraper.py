@@ -12,6 +12,19 @@ from .db import save_ad, ad_exists_by_url_id
 from .graphql_capture import attach_graphql_capture
 from .urls import absolute_url, post_url
 
+IN_PROGRESS_URL_IDS: set[str] = set()
+IN_PROGRESS_LOCK = asyncio.Lock()
+
+
+async def scrape_ad_with_lock(browser, post, sem):
+    url_id = str(post.get("urlId") or "").strip()
+
+    try:
+        await scrape_ad(browser, post, sem)
+    finally:
+        if url_id:
+            async with IN_PROGRESS_LOCK:
+                IN_PROGRESS_URL_IDS.discard(url_id)
 
 
 async def collect_visible_posts(tab) -> list[dict[str, Any]]:
@@ -259,7 +272,7 @@ async def scrape_tag_page(browser) -> None:
             )
 
             await asyncio.gather(
-                *(scrape_ad(browser, post, sem) for post in batch_to_scrape)
+                *(scrape_ad_with_lock(browser, post, sem) for post in batch_to_scrape)
             )
 
             scraped_count += len(batch_to_scrape)
