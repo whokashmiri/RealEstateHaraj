@@ -36,7 +36,8 @@ class Settings(BaseSettings):
 
     recent_loop_enabled: bool = True
     recent_loop_interval_seconds: int = 180
-    allow_overlapping_rounds: bool = True
+    allow_overlapping_rounds: bool = False
+    ad_timeout_seconds: int = 120
 
 
 settings = Settings()
